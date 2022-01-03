@@ -1,0 +1,132 @@
+:root {
+  --color-outline: #7d7c7c;
+  --color-focused: #9fb7fb;
+  --color-unfocused: #d1d1d1;
+}
+
+/* --------------------------------- yoghurt -------------------------------- */
+
+.yoghurt {
+  --w-unit: 1px;
+  --w-px: calc(var(--w) * var(--w-unit));
+  --w: unset;
+
+  --h: 1px;
+  --h-px: calc(var(--h) * var(--h-unit));
+  --h: unset;
+
+  display: block;
+  box-sizing: content-box;
+  min-width: 12px;
+  min-height: 12px;
+  width: var(--w-px);
+  height: var(--h-px);
+
+  --l-unit: 1px;
+  --l-px: calc(var(--l) * var(--l-unit));
+  --l: unset;
+
+  --t-unit: 1px;
+  --t-px: calc(var(--t) * var(--t-unit));
+  --t: unset;
+
+  position: absolute;
+  left: var(--l-px);
+  top: var(--t-px);
+
+  --border-color: var(--color-unfocused);
+  --adjuster-display: none;
+}
+
+.yoghurt::before {
+  content: "";
+
+  display: block;
+  box-sizing: content-box;
+  width: calc(100% - 1px);
+  height: calc(100% - 1px);
+
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-0.5px, -0.5px);
+
+  border: solid 1px var(--border-color);
+}
+
+/* ---------------------------- yoghurt-adjuster ---------------------------- */
+
+div.yoghurt-adjuster {
+  --w-unit: 1px;
+  --w: 6;
+
+  --h-unit: 1px;
+  --h: 6;
+
+  --adjuster-display: unset;
+  display: var(--adjuster-display);
+  min-width: 6px;
+  min-height: 6px;
+
+  --l-unit: 1%;
+  --t-unit: 1%;
+
+  transform: translate(-50%, -50%);
+
+  background-color: #ffffff;
+
+  --border-color: var(--color-outline);
+}
+
+div.yoghurt-adjuster-tl {
+  --l: 0;
+  --t: 0;
+}
+
+div.yoghurt-adjuster-tm {
+  --l: 50;
+  --t: 0;
+}
+
+div.yoghurt-adjuster-tr {
+  --l: 100;
+  --t: 0;
+}
+
+div.yoghurt-adjuster-ml {
+  --l: 0;
+  --t: 50;
+}
+
+div.yoghurt-adjuster-mr {
+  --l: 100;
+  --t: 50;
+}
+
+div.yoghurt-adjuster-bl {
+  --l: 0;
+  --t: 100;
+}
+
+div.yoghurt-adjuster-bm {
+  --l: 50;
+  --t: 100;
+}
+
+div.yoghurt-adjuster-br {
+  --l: 100;
+  --t: 100;
+}
+
+/* ------------------------------ yoghurt-text ------------------------------
+
+textarea.yoghurt-text {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+
+  border: none;
+  resize: none;
+  outline: none;
+} */
