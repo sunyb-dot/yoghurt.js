@@ -13,11 +13,6 @@ var yoghurt = new Object();
 yoghurt.debug = window?.env == `development` && {};
 yoghurt.debug.verbose = false;
 yoghurt.yoghurts = new Map();
-yoghurt.style = document.createElement(`link`);
-yoghurt.href = `${document.currentScript.src.split(`/`).slice(0, -1).join(`/`)}/yoghurt.css`;
-
-Object.assign(yoghurt.style, { rel: `stylesheet`, type: `text/css`, href: yoghurt.href });
-document.currentScript.parentNode.insertBefore(yoghurt.style, document.currentScript.nextElementSibling);
 
 window.onmousedown = function (_event) {
   const fn = (it) => it.status?.focused && it !== this && it.element.dispatchEvent(new yoghurt.FocusEvent(false));
@@ -41,12 +36,12 @@ yoghurt.drop = function (element) {
   if (yoghurt.yoghurts.has(element)) return yoghurt.yoghurts.get(element).destructor();
 };
 
-yoghurt.enter = function (element) {
+yoghurt.enter = function (element = document.currentScript.parentNode) {
   const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT);
   for (let node = it.nextNode(); node !== null; node = it.nextNode()) yoghurt.take(node);
 };
 
-yoghurt.leave = function (element) {
+yoghurt.leave = function (element = document.currentScript.parentNode) {
   const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT);
   for (let node = it.nextNode(); node !== null; node = it.nextNode()) yoghurt.drop(node);
 };
