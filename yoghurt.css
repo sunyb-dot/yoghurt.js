@@ -35,6 +35,11 @@
   top: var(--t-px);
 
   --border-color: var(--color-unfocused);
+  --border-shadow: 0px;
+
+  outline: none;
+  cursor: all-scroll;
+
   --adjuster-display: none;
 }
 
@@ -52,6 +57,7 @@
   transform: translate(-0.5px, -0.5px);
 
   border: solid 1px var(--border-color);
+  box-shadow: 0 0 var(--border-shadow) var(--border-color);
 }
 
 /* ---------------------------- yoghurt-adjuster ---------------------------- */
@@ -76,46 +82,63 @@ div.yoghurt-adjuster {
   background-color: #ffffff;
 
   --border-color: var(--color-outline);
+  --border-shadow: 0px;
 }
 
 div.yoghurt-adjuster-tl {
   --l: 0;
   --t: 0;
+
+  cursor: nwse-resize;
 }
 
 div.yoghurt-adjuster-tm {
   --l: 50;
   --t: 0;
+
+  cursor: ns-resize;
 }
 
 div.yoghurt-adjuster-tr {
   --l: 100;
   --t: 0;
+
+  cursor: nesw-resize;
 }
 
 div.yoghurt-adjuster-ml {
   --l: 0;
   --t: 50;
+
+  cursor: ew-resize;
 }
 
 div.yoghurt-adjuster-mr {
   --l: 100;
   --t: 50;
+
+  cursor: ew-resize;
 }
 
 div.yoghurt-adjuster-bl {
   --l: 0;
   --t: 100;
+
+  cursor: nesw-resize;
 }
 
 div.yoghurt-adjuster-bm {
   --l: 50;
   --t: 100;
+
+  cursor: ns-resize;
 }
 
 div.yoghurt-adjuster-br {
   --l: 100;
   --t: 100;
+
+  cursor: nwse-resize;
 }
 
 /* ------------------------------ yoghurt-text ------------------------------
