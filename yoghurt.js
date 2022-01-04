@@ -1,6 +1,6 @@
 `use strict`;
 
-window.onload = () => yoghurt.enter(document.body);
+window.onload = () => yoghurt.enter();
 
 console.time(`Yoghurt Loaded`);
 
@@ -12,11 +12,12 @@ var yoghurt = new Object();
 
 yoghurt.debug = window?.env == `development` && {};
 yoghurt.debug.verbose = false;
+yoghurt.parent = document.currentScript?.parentNode;
 yoghurt.yoghurts = new Map();
 
 window.onmousedown = function (_event) {
-  const fn = (it) => it.status?.focused && it !== this && it.element.dispatchEvent(new yoghurt.FocusEvent(false));
-  yoghurt.yoghurts.forEach(fn);
+  const unfocus = (it) => it.status?.focused && it !== this && it.element.dispatchEvent(new yoghurt.FocusEvent(false));
+  yoghurt.yoghurts.forEach(unfocus);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -28,7 +29,7 @@ yoghurt.take = function (element) {
     switch (element.tagName) {
       case `DIV`:
       case `SPAN`:
-        return new yoghurt.yoghurtBlock(element);
+        return new yoghurt.yoghurtEditor(element);
     }
 };
 
@@ -36,12 +37,12 @@ yoghurt.drop = function (element) {
   if (yoghurt.yoghurts.has(element)) return yoghurt.yoghurts.get(element).destructor();
 };
 
-yoghurt.enter = function (element = document.currentScript.parentNode) {
+yoghurt.enter = function (element = document.body) {
   const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT);
   for (let node = it.nextNode(); node !== null; node = it.nextNode()) yoghurt.take(node);
 };
 
-yoghurt.leave = function (element = document.currentScript.parentNode) {
+yoghurt.leave = function (element = document.body) {
   const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT);
   for (let node = it.nextNode(); node !== null; node = it.nextNode()) yoghurt.drop(node);
 };
@@ -65,10 +66,6 @@ yoghurt.EditEvent = class extends CustomEvent {
 yoghurt.SelectEvent = class extends CustomEvent {
   constructor(range) {
     super(`yoghurtselect`, { detail: range });
-  }
-
-  get range() {
-    return this.detail.range;
   }
 };
 
@@ -107,7 +104,7 @@ yoghurt.yoghurt = class {
   }
 
   constructor(element) {
-    if (yoghurt.debug?.verbose) console.trace(element);
+    if (yoghurt.debug?.verbose) console.log(element);
 
     Object.assign(this, { element });
 
@@ -118,7 +115,7 @@ yoghurt.yoghurt = class {
   }
 
   destructor() {
-    if (yoghurt.debug?.verbose) console.trace(this, this.element);
+    if (yoghurt.debug?.verbose) console.log(this, this.element);
 
     this.element.classList.remove(`yoghurt`);
     yoghurt.yoghurts.delete(this.element, this);
@@ -127,11 +124,10 @@ yoghurt.yoghurt = class {
   }
 
   onmousedown(event) {
-    event.preventDefault();
-    event.stopPropagation();
+    event.stopPropagation(), event.preventDefault();
     window.onmousedown.call(this, event);
 
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
 
     const { pageX, pageY } = event;
     Object.assign(this, {
@@ -144,7 +140,7 @@ yoghurt.yoghurt = class {
   }
 
   onmousemove(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
+    if (yoghurt.debug?.verbose) console.log(this, event);
 
     if (!this.element.hasAttribute(`fixed-x`))
       this.element.style.setProperty(`--l`, (event.pageX + this.offsetX) / parseFloat(this.get(`--l-unit`, `left`)));
@@ -153,7 +149,7 @@ yoghurt.yoghurt = class {
   }
 
   onmouseup(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
 
     this.unlisten(`mousemove`, document);
     this.unlisten(`mouseup`, document);
@@ -162,7 +158,7 @@ yoghurt.yoghurt = class {
 
 yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
   constructor(element, index) {
-    if (yoghurt.debug?.verbose) console.trace(element);
+    if (yoghurt.debug?.verbose) console.log(element);
     super(element);
 
     Object.assign(this, { index });
@@ -175,14 +171,13 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
   }
 
   destructor() {
-    if (yoghurt.debug?.verbose) console.trace(this, this.element);
+    if (yoghurt.debug?.verbose) console.log(this, this.element);
 
     this.element.remove();
   }
 
   onmousedown(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
-    super.onmousedown(event), this.parent.onmousedown(event);
+    super.onmousedown(event), setTimeout(() => this.parent.onmousedown(event));
 
     const { pageX, pageY } = event;
     Object.assign(this, {
@@ -193,10 +188,11 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
     this.element.style.setProperty(`--adjuster-display`, `block`);
     if (!this.index.endsWith(`l`)) this.parent.element.setAttribute(`fixed-x`, ``);
     if (!this.index.startsWith(`t`)) this.parent.element.setAttribute(`fixed-y`, ``);
+
+    this.parent.element.dispatchEvent(new yoghurt.EditEvent(false)); // BUG?
   }
 
   onmousemove(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
     super.onmousemove(event);
 
     const [width, height] = [event.pageX * this.sign[1] + this.offsetW, event.pageY * this.sign[0] + this.offsetH];
@@ -210,7 +206,6 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
   }
 
   onmouseup(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
     super.onmouseup(event);
 
     this.element.style.setProperty(`--adjuster-display`, ``);
@@ -222,7 +217,6 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
 
 yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   constructor(element) {
-    if (yoghurt.debug?.verbose) console.trace(element);
     super(element);
 
     Object.assign(this, { status: { focused: false, mousemove: false } });
@@ -247,7 +241,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   }
 
   destructor() {
-    if (yoghurt.debug?.verbose) console.trace(this, this.element);
     super.destructor();
 
     this.element.style.setProperty(`--adjuster-display`, ``);
@@ -268,7 +261,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   }
 
   onmousedown(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
     super.onmousedown(event);
 
     Object.assign(this.status, { mousemove: false });
@@ -276,7 +268,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   }
 
   onmousemove(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
     super.onmousemove(event);
 
     Object.assign(this.status, { mousemove: true });
@@ -284,14 +275,13 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   }
 
   onmouseup(event) {
-    if (yoghurt.debug?.verbose) console.trace(this, event);
     super.onmouseup(event);
 
     if (this.status.mousemove) this.element.dispatchEvent(new yoghurt.FocusEvent(true));
   }
 
   onyoghurtfocused(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { focused: true });
 
     this.element.style.setProperty(`--adjuster-display`, `block`);
@@ -299,7 +289,7 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   }
 
   onyoghurtunfocused(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { focused: false });
 
     this.element.style.setProperty(`--adjuster-display`, `none`);
@@ -309,7 +299,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
 
 yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
   constructor(element) {
-    if (yoghurt.debug?.verbose) console.trace(element);
     super(element);
 
     Object.assign(this, { status: { editing: false } });
@@ -317,73 +306,79 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
     this.listen(`dblclick`);
     this.listen(`yoghurtedit`);
     this.listen(`yoghurtedited`);
-    this.listen(`yoghurtunfocused`);
   }
 
   destructor() {
-    if (yoghurt.debug?.verbose) console.trace(this, this.element);
     super.destructor();
 
     this.unlisten(`dblclick`);
-    this.unlisten(`yoghurtfocused`);
-    this.unlisten(`yoghurtunfocused`);
+    this.unlisten(`yoghurtedit`);
+    this.unlisten(`yoghurtedited`);
   }
 
   onmousedown(event) {
-    if (this.status.editing) return event.stopPropagation();
+    if (!this.status.editing) return super.onmousedown(event);
+    event.stopPropagation();
 
-    if (yoghurt.debug?.verbose) console.trace(this, event);
-    super.onmousedown(event);
+    this.listen(`mouseup`, document);
+  }
+
+  onmouseup(event) {
+    if (!this.status.editing) return super.onmouseup(event);
+
+    const selections = window.getSelection();
+    for (let index = 0; index < selections.rangeCount; index++)
+      selections.containsNode(this.element) &&
+        this.element.dispatchEvent(new yoghurt.SelectEvent(selections.getRangeAt(index)));
+
+    this.unlisten(`mouseup`, document);
   }
 
   ondblclick(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    event.stopPropagation(), event.preventDefault();
+
+    if (yoghurt.debug) console.log(this, event);
 
     this.element.dispatchEvent(new yoghurt.EditEvent(!this.status.editing));
   }
 
+  onkeydown(event) {
+    if (yoghurt.debug) console.log(this, event);
+  }
+
+  onyoghurtunfocused(event) {
+    if (!this.status.editing) return super.onyoghurtunfocused(event);
+  }
+
   onyoghurtedit(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { editing: true });
+
+    this.element.dispatchEvent(new yoghurt.FocusEvent(true));
+    this.element.setAttribute(`contenteditable`, ``);
+    this.element.style.setProperty(`--border-shadow`, `10px`);
+    this.element.style.setProperty(`cursor`, `text`);
+
+    this.listen(`keydown`, document);
+    this.listen(`yoghurtselect`);
   }
 
   onyoghurtedited(event) {
-    if (yoghurt.debug) console.trace(this, event);
+    if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { editing: false });
+
+    window.getSelection().removeAllRanges();
+    this.element.removeAttribute(`contenteditable`);
+    this.element.style.setProperty(`--border-shadow`, `0px`);
+    this.element.style.setProperty(`cursor`, ``);
+
+    this.unlisten(`keydown`, document);
+    this.unlisten(`yoghurtselect`);
+  }
+
+  onyoghurtselect(event) {
+    if (yoghurt.debug) console.log(this, event);
   }
 };
-
-// yoghurtclass yoghurtText extends yoghurtBlock {
-//   constructor(element) {
-//     if (yoghurt.debug?.verbose) console.trace(element);
-//     super(element);
-
-//     Object.assign(this.status, { editing: false });
-
-//     this.textarea = this.add(`yoghurt yoghurt-text`, `textarea`);
-
-//     this.listen(`dblclick`);
-//     this.listen(`yoghurtedit`);
-//     this.listen(`yoghurtedited`);
-//   }
-
-//   ondblclick(event) {
-//     // event.preventDefault(), event.stopPropagation();
-
-//     if (yoghurt.debug) console.trace(this, event);
-
-//     Object.assign(this.status, { editing: !this.status.editing });
-//     this.element.dispatchEvent(new EditEvent(`yoghurtedit${this.status.editing ? `` : `ed`}`));
-//     // if (this.editing) this.textarea.style.setProperty(``)
-//   }
-
-//   onyoghurtedit(event) {
-//     if (yoghurt.debug) console.trace(this, event);
-//   }
-
-//   onyoghurtedited(event) {
-//     if (yoghurt.debug) console.trace(this, event);
-//   }
-// }
 
 console.timeEnd(`Yoghurt Loaded`);
