@@ -10,7 +10,7 @@ console.time(`Yoghurt Loaded`);
 
 var yoghurt = new Object();
 
-yoghurt.debug = window?.env == `development` && {};
+yoghurt.debug = window?.env === `development` && {};
 yoghurt.debug.verbose = false;
 yoghurt.parent = document.currentScript?.parentNode;
 yoghurt.yoghurts = new Map();
@@ -118,6 +118,7 @@ yoghurt.yoghurt = class {
     if (yoghurt.debug?.verbose) console.log(this, this.element);
 
     this.element.classList.remove(`yoghurt`);
+    this.element.style.setProperty(`position`, `absolute`);
     yoghurt.yoghurts.delete(this.element, this);
 
     this.unlisten(`mousedown`);
@@ -311,6 +312,10 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
   destructor() {
     super.destructor();
 
+    this.element.style.setProperty(`--border-shadow`, ``);
+    this.element.style.setProperty(`cursor`, ``);
+    this.element.removeAttribute(`contenteditable`);
+
     this.unlisten(`dblclick`);
     this.unlisten(`yoghurtedit`);
     this.unlisten(`yoghurtedited`);
@@ -367,10 +372,11 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
     if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { editing: false });
 
-    window.getSelection().removeAllRanges();
-    this.element.removeAttribute(`contenteditable`);
     this.element.style.setProperty(`--border-shadow`, `0px`);
     this.element.style.setProperty(`cursor`, ``);
+    this.element.removeAttribute(`contenteditable`);
+
+    window.getSelection().removeAllRanges();
 
     this.unlisten(`keydown`, document);
     this.unlisten(`yoghurtselect`);

@@ -4,7 +4,7 @@ HTML edition in place
 
 
 
-## Quick hack
+**Quick hack**
 
 Open Web page. Bring up the console (`⌘ + ⌥ + C` on Mac):
 1. Load Scripts
