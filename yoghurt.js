@@ -218,11 +218,7 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   constructor(element) {
     super(element);
 
-    this.adjusters = [`tl`, `tm`, `tr`, `ml`, `mr`, `bl`, `bm`, `br`].map(
-      (index) => new yoghurt.yoghurtAdjuster(this.shadow, index)
-    );
-
-    Object.assign(this, { status: { focused: false, mousemove: false } });
+    Object.assign(this, { status: { focused: false, mousemove: false }, adjusters: [] });
 
     this.listen(`yoghurtfocused`);
     this.listen(`yoghurtunfocused`);
@@ -230,8 +226,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
 
   destructor() {
     super.destructor();
-
-    this.adjusters.forEach((adjuster) => adjuster.destructor());
 
     this.unlisten(`yoghurtfocused`);
     this.unlisten(`yoghurtunfocused`);
@@ -263,6 +257,10 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
 
     this.shadow.style.setProperty(`--adjuster-display`, `block`);
     this.shadow.style.setProperty(`--border-color`, `var(--color-focused)`);
+
+    this.adjusters = [`tl`, `tm`, `tr`, `ml`, `mr`, `bl`, `bm`, `br`].map(
+      (index) => new yoghurt.yoghurtAdjuster(this.shadow, index)
+    );
   }
 
   onyoghurtunfocused(event) {
@@ -271,6 +269,8 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
 
     this.shadow.style.setProperty(`--adjuster-display`, `none`);
     this.shadow.style.setProperty(`--border-color`, `var(--color-unfocused)`);
+
+    this.adjusters.forEach((adjuster) => adjuster.destructor());
   }
 };
 
