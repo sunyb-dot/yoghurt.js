@@ -1,7 +1,5 @@
 `use strict`;
 
-window.onload = () => yoghurt.enter();
-
 console.time(`Yoghurt Loaded`);
 
 /* -------------------------------------------------------------------------- */
@@ -10,14 +8,17 @@ console.time(`Yoghurt Loaded`);
 
 var yoghurt = new Object();
 
-yoghurt.debug = window?.env === `development` && {};
+yoghurt.debug = window.env === `development` && {};
 yoghurt.debug.verbose = false;
 yoghurt.parent = document.currentScript?.parentNode;
 yoghurt.yoghurts = new Map();
 
 window.onmousedown = function (_event) {
-  const unfocus = (it) => it.status?.focused && it !== this && it.element.dispatchEvent(new yoghurt.FocusEvent(false));
+  const unfocus = (it) => it.status?.focused && it !== this && it.shadow.dispatchEvent(new yoghurt.FocusEvent(false));
   yoghurt.yoghurts.forEach(unfocus);
+
+  const edited = (it) => it.status?.editing && it !== this && it.shadow.dispatchEvent(new yoghurt.EditEvent(false));
+  yoghurt.yoghurts.forEach(edited);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -38,7 +39,8 @@ yoghurt.drop = function (element) {
 };
 
 yoghurt.enter = function (element = document.body) {
-  const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT);
+  const acceptNode = (node) => !node.classList.contains(`yoghurt`);
+  const it = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT, { acceptNode });
   for (let node = it.nextNode(); node !== null; node = it.nextNode()) yoghurt.take(node);
 };
 
@@ -78,18 +80,7 @@ yoghurt.yoghurt = class {
     return yoghurt.yoghurts.get(this.element.parentElement);
   }
 
-  get(property, reference) {
-    const display = this.element.style.getPropertyValue(`display`);
-    this.element.style.setProperty(`display`, `block`);
-    const style = this.element.style.getPropertyValue(reference);
-    this.element.style.setProperty(reference, getComputedStyle(this.element).getPropertyValue(property));
-    const value = getComputedStyle(this.element).getPropertyValue(reference);
-    this.element.style.setProperty(reference, style);
-    this.element.style.setProperty(`display`, display);
-    return value;
-  }
-
-  listen(type, element = this.element) {
+  listen(type, element = this.shadow) {
     this.unlisten(type, element); // in case of unpaired listen/un() !
 
     const listener = this[`on${type}`].bind(this);
@@ -97,7 +88,7 @@ yoghurt.yoghurt = class {
     this[`${type}Listener`] = listener;
   }
 
-  unlisten(type, element = this.element) {
+  unlisten(type, element = this.shadow) {
     const listener = this[`${type}Listener`];
     element.removeEventListener(type, listener);
     delete this[`${type}Listener`];
@@ -106,10 +97,13 @@ yoghurt.yoghurt = class {
   constructor(element) {
     if (yoghurt.debug?.verbose) console.log(element);
 
-    Object.assign(this, { element });
-
-    this.element.classList.add(`yoghurt`);
     yoghurt.yoghurts.set(element, this);
+
+    const shadow = document.createElement(`div`);
+    shadow.classList.add(`yoghurt`);
+    element.prepend(shadow);
+
+    Object.assign(this, { element, shadow });
 
     this.listen(`mousedown`);
   }
@@ -117,9 +111,9 @@ yoghurt.yoghurt = class {
   destructor() {
     if (yoghurt.debug?.verbose) console.log(this, this.element);
 
-    this.element.classList.remove(`yoghurt`);
-    this.element.style.setProperty(`position`, `absolute`);
     yoghurt.yoghurts.delete(this.element, this);
+
+    this.shadow.remove();
 
     this.unlisten(`mousedown`);
   }
@@ -131,10 +125,8 @@ yoghurt.yoghurt = class {
     if (yoghurt.debug) console.log(this, event);
 
     const { pageX, pageY } = event;
-    Object.assign(this, {
-      offsetX: parseFloat(this.get(`--l-px`, `left`)) - pageX,
-      offsetY: parseFloat(this.get(`--t-px`, `top`)) - pageY,
-    });
+    Object.assign(this, { offsetX: parseFloat(getComputedStyle(this.element).getPropertyValue(`left`)) - pageX });
+    Object.assign(this, { offsetY: parseFloat(getComputedStyle(this.element).getPropertyValue(`top`)) - pageY });
 
     this.listen(`mousemove`, document);
     this.listen(`mouseup`, document);
@@ -143,10 +135,14 @@ yoghurt.yoghurt = class {
   onmousemove(event) {
     if (yoghurt.debug?.verbose) console.log(this, event);
 
-    if (!this.element.hasAttribute(`fixed-x`))
-      this.element.style.setProperty(`--l`, (event.pageX + this.offsetX) / parseFloat(this.get(`--l-unit`, `left`)));
-    if (!this.element.hasAttribute(`fixed-y`))
-      this.element.style.setProperty(`--t`, (event.pageY + this.offsetY) / parseFloat(this.get(`--t-unit`, `top`)));
+    const get = (name) =>
+      this.element.style.setProperty(name, `1%`) || parseFloat(getComputedStyle(this.element).getPropertyValue(name));
+    const set = (value, property) =>
+      this.element.style.getPropertyValue(property).endsWith(`%`) ? `${value / get(property)}%` : `${value}px`;
+    if (!this.shadow.hasAttribute(`fixed-x`))
+      this.element.style.setProperty(`left`, set(event.pageX + this.offsetX, `left`));
+    if (!this.shadow.hasAttribute(`fixed-y`))
+      this.element.style.setProperty(`top`, set(event.pageY + this.offsetY, `top`));
   }
 
   onmouseup(event) {
@@ -162,19 +158,16 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
     if (yoghurt.debug?.verbose) console.log(element);
     super(element);
 
-    Object.assign(this, { index });
-    if (this.index.endsWith(`m`)) this.element.setAttribute(`fixed-x`, ``);
-    if (this.index.startsWith(`m`)) this.element.setAttribute(`fixed-y`, ``);
-    const sign = { t: -1, l: -1, m: 0, b: 1, r: 1 };
-    Object.assign(this, { sign: Array.from(this.index).map((c) => sign[c]) });
+    this.shadow.classList.add(`yoghurt-adjuster`, `yoghurt-adjuster-${index}`);
+    if (index.endsWith(`m`)) this.shadow.setAttribute(`fixed-x`, ``);
+    if (index.startsWith(`m`)) this.shadow.setAttribute(`fixed-y`, ``);
 
-    this.element.classList.add(`yoghurt-adjuster`, `yoghurt-adjuster-${this.index}`);
+    const sign = { t: -1, l: -1, m: 0, b: 1, r: 1 };
+    Object.assign(this, { index, sign: Array.from(index).map((c) => sign[c]) });
   }
 
   destructor() {
     if (yoghurt.debug?.verbose) console.log(this, this.element);
-
-    this.element.remove();
   }
 
   onmousedown(event) {
@@ -182,37 +175,42 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
 
     const { pageX, pageY } = event;
     Object.assign(this, {
-      offsetW: parseFloat(this.parent.get(`--w-px`, `left`)) - pageX * this.sign[1],
-      offsetH: parseFloat(this.parent.get(`--h-px`, `top`)) - pageY * this.sign[0],
+      offsetW: parseFloat(getComputedStyle(this.element).getPropertyValue(`width`)) - pageX * this.sign[1],
+      offsetH: parseFloat(getComputedStyle(this.element).getPropertyValue(`height`)) - pageY * this.sign[0],
     });
 
-    this.element.style.setProperty(`--adjuster-display`, `block`);
-    if (!this.index.endsWith(`l`)) this.parent.element.setAttribute(`fixed-x`, ``);
-    if (!this.index.startsWith(`t`)) this.parent.element.setAttribute(`fixed-y`, ``);
+    if (!this.index.endsWith(`l`)) this.parent.shadow.setAttribute(`fixed-x`, ``);
+    if (!this.index.startsWith(`t`)) this.parent.shadow.setAttribute(`fixed-y`, ``);
 
-    this.parent.element.dispatchEvent(new yoghurt.EditEvent(false)); // BUG?
+    this.shadow.style.setProperty(`--adjuster-display`, `block`);
+
+    this.parent.shadow.dispatchEvent(new yoghurt.EditEvent(false));
   }
 
   onmousemove(event) {
     super.onmousemove(event);
 
-    const [width, height] = [event.pageX * this.sign[1] + this.offsetW, event.pageY * this.sign[0] + this.offsetH];
+    const get = (name) =>
+      this.element.style.setProperty(name, `1%`) || parseFloat(getComputedStyle(this.element).getPropertyValue(name));
+    const set = (value, property) =>
+      this.element.style.getPropertyValue(property).endsWith(`%`) ? `${value / get(property)}%` : `${value}px`;
     if (!this.element.hasAttribute(`fixed-w`))
-      this.parent.element.style.setProperty(`--w`, width / parseFloat(this.parent.get(`--w-unit`, `left`)));
+      this.parent.element.style.setProperty(`width`, set(event.pageX * this.sign[1] + this.offsetW, `width`));
     if (!this.element.hasAttribute(`fixed-h`))
-      this.parent.element.style.setProperty(`--h`, height / parseFloat(this.parent.get(`--h-unit`, `top`)));
+      this.parent.element.style.setProperty(`height`, set(event.pageY * this.sign[0] + this.offsetH, `height`));
 
-    this.element.style.setProperty(`--l`, ``);
-    this.element.style.setProperty(`--t`, ``);
+    this.element.style.setProperty(`left`, ``);
+    this.element.style.setProperty(`top`, ``);
   }
 
   onmouseup(event) {
     super.onmouseup(event);
 
-    this.element.style.setProperty(`--adjuster-display`, ``);
-    this.parent.element.removeAttribute(`fixed-x`);
-    this.parent.element.removeAttribute(`fixed-y`);
-    this.parent.element.dispatchEvent(new yoghurt.FocusEvent(true));
+    this.parent.shadow.removeAttribute(`fixed-x`);
+    this.parent.shadow.removeAttribute(`fixed-y`);
+
+    this.shadow.style.setProperty(`--adjuster-display`, ``);
+    this.parent.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
   }
 };
 
@@ -220,22 +218,11 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   constructor(element) {
     super(element);
 
-    Object.assign(this, { status: { focused: false, mousemove: false } });
-
-    [`width`, `height`, `left`, `top`].forEach((name) => {
-      const value = this.element.style.getPropertyValue(name);
-      const [_match, num, unit] = /^(\d+(?:\.\d+)?)(.+)/.exec(value) ?? [];
-      this.element.style.setProperty(name, ``);
-
-      const offset = name.match(/left|top/) ? this.parent?.element?.getBoundingClientRect()?.[name] : 0;
-      this.element.style.setProperty(`--${name[0]}`, num ?? this.element.getBoundingClientRect()[name] - offset);
-      this.element.style.setProperty(`--${name[0]}-unit`, `1${unit ?? `px`}`);
-    });
-
-    const adjusters = [`tl`, `tm`, `tr`, `ml`, `mr`, `bl`, `bm`, `br`];
-    this.adjusters = adjusters.map(
-      (index) => new yoghurt.yoghurtAdjuster(this.element.appendChild(document.createElement(`div`)), index)
+    this.adjusters = [`tl`, `tm`, `tr`, `ml`, `mr`, `bl`, `bm`, `br`].map(
+      (index) => new yoghurt.yoghurtAdjuster(this.shadow, index)
     );
+
+    Object.assign(this, { status: { focused: false, mousemove: false } });
 
     this.listen(`yoghurtfocused`);
     this.listen(`yoghurtunfocused`);
@@ -243,17 +230,6 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
 
   destructor() {
     super.destructor();
-
-    this.element.style.setProperty(`--adjuster-display`, ``);
-    this.element.style.setProperty(`--border-color`, ``);
-    [`width`, `height`, `left`, `top`].forEach((name) => {
-      const value = this.element.style.getPropertyValue(`--${name[0]}-unit`);
-      const [_match, num, unit] = /^(\d+(?:\.\d+)?)(.+)/.exec(value) ?? [];
-      this.element.style.setProperty(name, `${this.element.style.getPropertyValue(`--${name[0]}`) * num}${unit}`);
-
-      this.element.style.setProperty(`--${name[0]}`, ``);
-      this.element.style.setProperty(`--${name[0]}-unit`, ``);
-    });
 
     this.adjusters.forEach((adjuster) => adjuster.destructor());
 
@@ -265,36 +241,36 @@ yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
     super.onmousedown(event);
 
     Object.assign(this.status, { mousemove: false });
-    this.element.dispatchEvent(new yoghurt.FocusEvent(!this.status.focused));
+    this.shadow.dispatchEvent(new yoghurt.FocusEvent(!this.status.focused));
   }
 
   onmousemove(event) {
     super.onmousemove(event);
 
     Object.assign(this.status, { mousemove: true });
-    if (this.status.focused) this.element.dispatchEvent(new yoghurt.FocusEvent(false));
+    if (this.status.focused) this.shadow.dispatchEvent(new yoghurt.FocusEvent(false));
   }
 
   onmouseup(event) {
     super.onmouseup(event);
 
-    if (this.status.mousemove) this.element.dispatchEvent(new yoghurt.FocusEvent(true));
+    if (this.status.mousemove) this.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
   }
 
   onyoghurtfocused(event) {
     if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { focused: true });
 
-    this.element.style.setProperty(`--adjuster-display`, `block`);
-    this.element.style.setProperty(`--border-color`, `var(--color-focused)`);
+    this.shadow.style.setProperty(`--adjuster-display`, `block`);
+    this.shadow.style.setProperty(`--border-color`, `var(--color-focused)`);
   }
 
   onyoghurtunfocused(event) {
     if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { focused: false });
 
-    this.element.style.setProperty(`--adjuster-display`, `none`);
-    this.element.style.setProperty(`--border-color`, `var(--color-unfocused)`);
+    this.shadow.style.setProperty(`--adjuster-display`, `none`);
+    this.shadow.style.setProperty(`--border-color`, `var(--color-unfocused)`);
   }
 };
 
@@ -312,10 +288,6 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
   destructor() {
     super.destructor();
 
-    this.element.style.setProperty(`--border-shadow`, ``);
-    this.element.style.setProperty(`cursor`, ``);
-    this.element.removeAttribute(`contenteditable`);
-
     this.unlisten(`dblclick`);
     this.unlisten(`yoghurtedit`);
     this.unlisten(`yoghurtedited`);
@@ -323,7 +295,10 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
 
   onmousedown(event) {
     if (!this.status.editing) return super.onmousedown(event);
+
     event.stopPropagation();
+
+    if (yoghurt.debug) console.log(this, event);
 
     this.listen(`mouseup`, document);
   }
@@ -331,10 +306,11 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
   onmouseup(event) {
     if (!this.status.editing) return super.onmouseup(event);
 
+    if (yoghurt.debug) console.log(this, event);
+
     const selections = window.getSelection();
     for (let index = 0; index < selections.rangeCount; index++)
-      selections.containsNode(this.element) &&
-        this.element.dispatchEvent(new yoghurt.SelectEvent(selections.getRangeAt(index)));
+      this.shadow.dispatchEvent(new yoghurt.SelectEvent(selections.getRangeAt(index))); // TODO: check contains
 
     this.unlisten(`mouseup`, document);
   }
@@ -344,7 +320,7 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
 
     if (yoghurt.debug) console.log(this, event);
 
-    this.element.dispatchEvent(new yoghurt.EditEvent(!this.status.editing));
+    this.shadow.dispatchEvent(new yoghurt.EditEvent(!this.status.editing));
   }
 
   onkeydown(event) {
@@ -359,25 +335,30 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
     if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { editing: true });
 
-    this.element.dispatchEvent(new yoghurt.FocusEvent(true));
     this.element.setAttribute(`contenteditable`, ``);
-    this.element.style.setProperty(`--border-shadow`, `10px`);
-    this.element.style.setProperty(`cursor`, `text`);
+    this.element.focus();
 
+    this.shadow.style.setProperty(`display`, `none`);
+
+    this.listen(`mousedown`, this.element);
     this.listen(`keydown`, document);
     this.listen(`yoghurtselect`);
+
+    this.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
   }
 
   onyoghurtedited(event) {
     if (yoghurt.debug) console.log(this, event);
     Object.assign(this.status, { editing: false });
 
-    this.element.style.setProperty(`--border-shadow`, `0px`);
-    this.element.style.setProperty(`cursor`, ``);
     this.element.removeAttribute(`contenteditable`);
+    this.element.blur();
+
+    this.shadow.style.setProperty(`display`, ``);
 
     window.getSelection().removeAllRanges();
 
+    this.unlisten(`mousedown`, this.element);
     this.unlisten(`keydown`, document);
     this.unlisten(`yoghurtselect`);
   }
