@@ -1,6 +1,6 @@
 # yoghurt.js
 
-HTML edition in place
+HTML editing in place
 
 
 
