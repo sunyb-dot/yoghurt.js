@@ -11,8 +11,21 @@ var yoghurt = new Object();
 yoghurt.debug = window.env === `development` && {};
 yoghurt.debug.verbose = false;
 yoghurt.yoghurts = new Map();
+yoghurt.observer = new ResizeObserver((entries) => {
+  if (yoghurt.debug) console.log(this, entries);
 
-window.onmousedown = function (_event) {
+  for (let entry of entries) {
+    const it = yoghurt.yoghurts.get(entry.target);
+    if (it && getComputedStyle(it.element).getPropertyValue(`position`) === `static`) {
+      const rect = it.element.getBoundingClientRect();
+      [`width`, `height`, `left`, `top`].forEach((name) => it.shadow.style.setProperty(name, `${rect[name]}px`));
+    }
+  }
+});
+
+window.onmousedown = function (event) {
+  if (yoghurt.debug) console.log(this, event);
+
   const unfocus = (it) => it.status?.focused && it !== this && it.shadow.dispatchEvent(new yoghurt.FocusEvent(false));
   yoghurt.yoghurts.forEach(unfocus);
 
@@ -236,6 +249,8 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
 yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
   constructor(element) {
     super(element);
+
+    if (getComputedStyle(element).getPropertyValue(`position`) === `static`) yoghurt.observer.observe(element);
 
     Object.assign(this, { status: { focused: false, mousemove: false }, adjusters: [] });
 
