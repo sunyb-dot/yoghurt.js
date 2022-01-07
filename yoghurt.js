@@ -103,7 +103,7 @@ yoghurt.SelectEvent = class extends CustomEvent {
 /*                                   YOGHURT                                  */
 /* -------------------------------------------------------------------------- */
 
-yoghurt.yoghurt = class {
+yoghurt.Yoghurt = class {
   get parent() {
     return yoghurt.yoghurts.get(this.element.parentElement);
   }
@@ -186,7 +186,7 @@ yoghurt.yoghurt = class {
   }
 };
 
-yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
+yoghurt.yoghurtAdjuster = class extends yoghurt.Yoghurt {
   constructor(element, index) {
     super(element);
 
@@ -246,7 +246,7 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.yoghurt {
   }
 };
 
-yoghurt.yoghurtBlock = class extends yoghurt.yoghurt {
+yoghurt.yoghurtBlock = class extends yoghurt.Yoghurt {
   constructor(element) {
     super(element);
 
