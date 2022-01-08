@@ -1,6 +1,6 @@
 # yoghurt.js
 
-![demo](/Users/xiaodu/Documents/🤖️代碼/yoghurt/yoghurt.js/demo-1080.gif)
+![demo](/demo-1080.gif)
 
 ​	🎨 Tidy & lightweight HTML editor in place. Drag 'n 'drop to move elements around. No unnecessary changes to original document are made.
 
