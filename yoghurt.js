@@ -10,7 +10,11 @@ var yoghurt = new Object();
 
 yoghurt.debug = window.env === `development` && {};
 yoghurt.debug.verbose = false;
+yoghurt.magnet = 7;
+
 yoghurt.yoghurts = new Map();
+yoghurt.clipboard = new Array();
+
 yoghurt.observer = new ResizeObserver((entries) => {
   if (yoghurt.debug) console.log(this, entries);
 
@@ -23,14 +27,40 @@ yoghurt.observer = new ResizeObserver((entries) => {
   }
 });
 
-window.onmousedown = function (event) {
+yoghurt.onmousedown = window.onmousedown = function (event) {
   if (yoghurt.debug) console.log(this, event);
 
-  const unfocus = (it) => it.status?.focused && it !== this && it.shadow.dispatchEvent(new yoghurt.FocusEvent(false));
+  const unfocus = (it) => it !== this && it.dispatch(new yoghurt.FocusEvent(false), `focused`, false);
   yoghurt.yoghurts.forEach(unfocus);
 
-  const edited = (it) => it.status?.editing && it !== this && it.shadow.dispatchEvent(new yoghurt.EditEvent(false));
+  const edited = (it) => it !== this && it.dispatch(new yoghurt.EditEvent(false), `editing`, false);
   yoghurt.yoghurts.forEach(edited);
+};
+
+yoghurt.onkeydown = window.onkeydown = function (event) {
+  if (yoghurt.debug) console.log(this, event);
+
+  switch (event.key) {
+    case `Backspace`: // delete
+      yoghurt.yoghurts.forEach((it) => it.status?.focused && (yoghurt.drop(it.element), it.element.remove()));
+      break;
+
+    case `c`: // copy
+      if (event.metaKey)
+        yoghurt.clipboard = Array.from(yoghurt.yoghurts).filter(([_element, it]) => it.status?.focused);
+      break;
+
+    case `v`: // paste
+      if (event.metaKey) {
+        const hosts = Array.from(yoghurt.yoghurts).filter(([_element, it]) => it.status?.focused);
+        yoghurt.clipboard.forEach(([element]) => yoghurt.leave(element));
+        const temp = new DocumentFragment();
+        yoghurt.clipboard.forEach(([element]) => temp.appendChild(element.cloneNode(true)));
+        hosts.forEach(([element]) => yoghurt.enter(element.append(temp.cloneNode(true))));
+        yoghurt.clipboard.forEach(([element]) => yoghurt.enter(element));
+      }
+      break;
+  }
 };
 
 /* -------------------------------------------------------------------------- */
@@ -85,6 +115,12 @@ yoghurt.SelectEvent = class extends CustomEvent {
   }
 };
 
+yoghurt.AlignEvent = class extends CustomEvent {
+  constructor(aligned, direction, node) {
+    super(`yoghurt${aligned ? `` : `un`}align`, { detail: { direction, node } });
+  }
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                   YOGHURT                                  */
 /* -------------------------------------------------------------------------- */
@@ -92,6 +128,26 @@ yoghurt.SelectEvent = class extends CustomEvent {
 yoghurt.Yoghurt = class {
   get parent() {
     return yoghurt.yoghurts.get(this.element.parentElement);
+  }
+
+  set(name, value) {
+    const property = this.element.style.getPropertyValue(name);
+    const [_match, unit] = property.match(/(%|px)$/) ?? [];
+    switch (unit) {
+      case `%`:
+        this.element.style.setProperty(name, `1${unit}`);
+        const scale = parseFloat(getComputedStyle(this.element).getPropertyValue(name));
+        this.element.style.setProperty(name, `${value / scale}${unit}`);
+        break;
+
+      default:
+        this.element.style.setProperty(name, `${value}px`);
+        break;
+    }
+  }
+
+  dispatch(event, check, value) {
+    if (value === undefined || this.status?.[check] !== value) this.shadow.dispatchEvent(event);
   }
 
   listen(type, element = this.shadow) {
@@ -122,7 +178,7 @@ yoghurt.Yoghurt = class {
     shadow.classList.add(`yoghurt`);
     element.prepend(shadow);
 
-    Object.assign(this, { element, shadow });
+    Object.assign(this, { element, shadow, status: {} });
 
     this.listen(`mousedown`);
   }
@@ -139,7 +195,7 @@ yoghurt.Yoghurt = class {
 
   onmousedown(event) {
     event.stopPropagation(), event.preventDefault();
-    window.onmousedown.call(this, event);
+    yoghurt.onmousedown.call(this, event);
 
     if (yoghurt.debug) console.log(this, event);
 
@@ -154,14 +210,8 @@ yoghurt.Yoghurt = class {
   onmousemove(event) {
     if (yoghurt.debug?.verbose) console.log(this, event);
 
-    const get = (name) =>
-      this.element.style.setProperty(name, `1%`) || parseFloat(getComputedStyle(this.element).getPropertyValue(name));
-    const set = (value, property) =>
-      this.element.style.getPropertyValue(property).endsWith(`%`) ? `${value / get(property)}%` : `${value}px`;
-    if (!this.shadow.hasAttribute(`fixed-x`))
-      this.element.style.setProperty(`left`, set(event.pageX + this.offsetX, `left`));
-    if (!this.shadow.hasAttribute(`fixed-y`))
-      this.element.style.setProperty(`top`, set(event.pageY + this.offsetY, `top`));
+    if (!this.shadow.hasAttribute(`fixed-x`)) this.set(`left`, event.pageX + this.offsetX);
+    if (!this.shadow.hasAttribute(`fixed-y`)) this.set(`top`, event.pageY + this.offsetY);
   }
 
   onmouseup(event) {
@@ -202,20 +252,14 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.Yoghurt {
 
     this.shadow.style.setProperty(`--adjuster-display`, `block`);
 
-    this.parent.shadow.dispatchEvent(new yoghurt.EditEvent(false));
+    this.parent.dispatch(new yoghurt.EditEvent(false), `editing`, false);
   }
 
   onmousemove(event) {
     super.onmousemove(event);
 
-    const get = (name) =>
-      this.element.style.setProperty(name, `1%`) || parseFloat(getComputedStyle(this.element).getPropertyValue(name));
-    const set = (value, property) =>
-      this.element.style.getPropertyValue(property).endsWith(`%`) ? `${value / get(property)}%` : `${value}px`;
-    if (!this.element.hasAttribute(`fixed-w`))
-      this.parent.element.style.setProperty(`width`, set(event.pageX * this.sign[1] + this.offsetW, `width`));
-    if (!this.element.hasAttribute(`fixed-h`))
-      this.parent.element.style.setProperty(`height`, set(event.pageY * this.sign[0] + this.offsetH, `height`));
+    if (!this.element.hasAttribute(`fixed-w`)) this.parent.set(`width`, event.pageX * this.sign[1] + this.offsetW);
+    if (!this.element.hasAttribute(`fixed-h`)) this.parent.set(`height`, event.pageY * this.sign[0] + this.offsetH);
 
     this.element.style.setProperty(`left`, ``);
     this.element.style.setProperty(`top`, ``);
@@ -228,7 +272,7 @@ yoghurt.yoghurtAdjuster = class extends yoghurt.Yoghurt {
     this.parent.shadow.removeAttribute(`fixed-y`);
 
     this.shadow.style.setProperty(`--adjuster-display`, ``);
-    this.parent.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
+    this.parent.dispatch(new yoghurt.FocusEvent(true), `focused`, true);
   }
 };
 
@@ -238,37 +282,86 @@ yoghurt.yoghurtBlock = class extends yoghurt.Yoghurt {
 
     if (getComputedStyle(element).getPropertyValue(`position`) === `static`) yoghurt.observer.observe(element);
 
-    Object.assign(this, { status: { focused: false, mousemove: false }, adjusters: [] });
+    Object.assign(this, { adjusters: [], auxiliary: {}, horizontal: {}, vertical: {} });
+    Object.assign(this.status, { focused: false, mousemove: false });
 
     this.listen(`yoghurtfocused`);
     this.listen(`yoghurtunfocused`);
+    this.listen(`yoghurtalign`);
+    this.listen(`yoghurtunalign`);
   }
 
   destructor() {
     super.destructor();
 
+    yoghurt.observer.unobserve(this.element);
+
     this.unlisten(`yoghurtfocused`);
     this.unlisten(`yoghurtunfocused`);
+    this.unlisten(`yoghurtalign`);
+    this.unlisten(`yoghurtunalign`);
   }
 
   onmousedown(event) {
     super.onmousedown(event);
 
+    const rootx = new yoghurt.Node(Infinity, undefined, this.horizontal);
+    const rooty = new yoghurt.Node(Infinity, undefined, this.vertical);
+    Object.assign(this.horizontal, { root: rootx });
+    Object.assign(this.vertical, { root: rooty });
+
+    const round = (x) => Math.round(x * 10) / 10;
+    yoghurt.yoghurts.forEach((it, element) => {
+      if (!element.classList.contains(`yoghurt`) && !this.element.contains(it.element)) {
+        const rect = element.getBoundingClientRect();
+        rootx.insert(round(rect.left), it), rootx.insert(round(rect.right), it);
+        rooty.insert(round(rect.top), it), rooty.insert(round(rect.bottom), it);
+      }
+    });
+
     Object.assign(this.status, { mousemove: false });
-    this.shadow.dispatchEvent(new yoghurt.FocusEvent(!this.status.focused));
+    this.dispatch(new yoghurt.FocusEvent(!this.status.focused));
   }
 
   onmousemove(event) {
     super.onmousemove(event);
 
+    const alignment = [
+      [`horizontal`, `left`, `right`],
+      [`vertical`, `top`, `bottom`],
+    ];
+
+    const rect = this.element.getBoundingClientRect();
+    alignment.forEach(([direction, begin, end]) => {
+      const { root } = this[direction];
+      const [beginn, endn] = [root.near(rect[begin]), root.near(rect[end])];
+      const [begind, endd] = [beginn.key - rect[begin], endn.key - rect[end]];
+      const [begini, endi] = [`${begin}-${direction}`, `${end}-${direction}`];
+
+      if (!event.metaKey && Math.abs(begind) <= Math.abs(endd) && Math.abs(begind) < yoghurt.magnet) {
+        this.set(begin, parseFloat(getComputedStyle(this.element).getPropertyValue(begin)) + begind);
+        this.dispatch(new yoghurt.AlignEvent(true, begini, beginn), begini, beginn.key);
+      } else this.dispatch(new yoghurt.AlignEvent(false, begini, beginn), begini, null);
+
+      if (!event.metaKey && Math.abs(endd) <= Math.abs(begind) && Math.abs(endd) < yoghurt.magnet) {
+        this.set(begin, parseFloat(getComputedStyle(this.element).getPropertyValue(begin)) + endd);
+        this.dispatch(new yoghurt.AlignEvent(true, endi, endn), endi, endn.key);
+      } else this.dispatch(new yoghurt.AlignEvent(false, endi, endn), endi, null);
+    });
+
     Object.assign(this.status, { mousemove: true });
-    if (this.status.focused) this.shadow.dispatchEvent(new yoghurt.FocusEvent(false));
+    this.dispatch(new yoghurt.FocusEvent(false), `focused`, false);
   }
 
   onmouseup(event) {
     super.onmouseup(event);
 
-    if (this.status.mousemove) this.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
+    Object.assign(this, { horizontal: {}, vertical: {} }); // garbage
+    if (this.status.mousemove) this.dispatch(new yoghurt.FocusEvent(true), `focused`, true);
+    this.dispatch(new yoghurt.AlignEvent(false, `left-horizontal`), `left-horizontal`, null);
+    this.dispatch(new yoghurt.AlignEvent(false, `right-horizontal`), `right-horizontal`, null);
+    this.dispatch(new yoghurt.AlignEvent(false, `top-vertical`), `top-vertical`, null);
+    this.dispatch(new yoghurt.AlignEvent(false, `bottom-vertical`), `bottom-vertical`, null);
   }
 
   onyoghurtfocused(event) {
@@ -293,13 +386,37 @@ yoghurt.yoghurtBlock = class extends yoghurt.Yoghurt {
 
     this.adjusters.forEach((adjuster) => adjuster.destructor()), Object.assign(this, { adjusters: [] });
   }
+
+  onyoghurtalign(event) {
+    if (yoghurt.debug) console.log(this, event);
+    const { direction, node } = event.detail;
+    Object.assign(this.status, { [direction]: node.key });
+
+    const [tag, type] = direction.split(`-`);
+    this.auxiliary[tag]?.remove();
+
+    const auxiliary = document.createElement(`div`);
+    auxiliary.classList.add(`yoghurt`, `yoghurt-auxiliary`, `yoghurt-auxiliary-${type}`);
+    auxiliary.style.setProperty(`--coordinate`, `${node.key}px`);
+    document.body.appendChild(auxiliary);
+    this.auxiliary[tag] = auxiliary;
+  }
+
+  onyoghurtunalign(event) {
+    if (yoghurt.debug) console.log(this, event);
+    const { direction, node } = event.detail;
+    Object.assign(this.status, { [direction]: null });
+
+    const [tag, type] = direction.split(`-`);
+    this.auxiliary[tag]?.remove();
+  }
 };
 
 yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
   constructor(element) {
     super(element);
 
-    Object.assign(this, { status: { editing: false } });
+    Object.assign(this.status, { editing: false });
 
     this.listen(`dblclick`);
     this.listen(`yoghurtedit`);
@@ -327,7 +444,7 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
 
     if (yoghurt.debug) console.log(this, event);
 
-    this.shadow.dispatchEvent(new yoghurt.EditEvent(!this.status.editing));
+    this.dispatch(new yoghurt.EditEvent(!this.status.editing));
   }
 
   onkeydown(event) {
@@ -355,7 +472,7 @@ yoghurt.yoghurtEditor = class extends yoghurt.yoghurtBlock {
     this.unlisten(`keydown`, document);
     this.listen(`mousedown`);
 
-    this.shadow.dispatchEvent(new yoghurt.FocusEvent(true));
+    this.dispatch(new yoghurt.FocusEvent(true), `focused`, true);
   }
 };
 
@@ -373,7 +490,7 @@ yoghurt.yoghurtEditorText = class extends yoghurt.yoghurtEditor {
 
     const selections = window.getSelection();
     for (let index = 0; index < selections.rangeCount; index++)
-      this.shadow.dispatchEvent(new yoghurt.SelectEvent(selections.getRangeAt(index))); // TODO: check contains
+      this.dispatch(new yoghurt.SelectEvent(selections.getRangeAt(index))); // TODO: check contains
 
     this.unlisten(`mouseup`, document);
   }
@@ -402,5 +519,96 @@ yoghurt.yoghurtEditorText = class extends yoghurt.yoghurtEditor {
     if (yoghurt.debug) console.log(this, event);
   }
 };
+
+/* -------------------------------------------------------------------------- */
+/*                                  STRUCTURE                                 */
+/* -------------------------------------------------------------------------- */
+
+yoghurt.Node = class {
+  get(pos) {
+    return this[`_${pos}`];
+  }
+  set(pos, node) {
+    if (node) Object.assign(node, { parent: this, pos });
+    return (this[`_${pos}`] = node);
+  }
+
+  dump() {
+    return { key: this.key, value: this.value, left: this.get(`left`)?.dump(), right: this.get(`right`)?.dump() };
+  }
+
+  constructor(key, value, tree) {
+    Object.assign(this, { key, value: new Set([value]), tree });
+  }
+
+  rotate(from, to = { left: `right`, right: `left` }[from]) {
+    const node = this.get(from);
+    if (this.tree.root === this) delete (this.tree.root = node).parent;
+    else this.parent.set(this.pos, node);
+    this.set(from, node.get(to)), node.set(to, this);
+  }
+
+  splay() {
+    for (; this !== this.tree.root; ) {
+      if (this.parent === this.tree.root) this.parent.rotate(this.pos);
+      else {
+        if (this.pos === this.parent.pos) this.parent.parent.rotate(this.parent.pos);
+        else this.parent.rotate(this.pos);
+        this.parent.rotate(this.pos);
+      }
+    }
+    return this;
+  }
+
+  find(key) {
+    if (key === this.key) return this;
+    if (key < this.key) return this.get(`left`) ? this.get(`left`).find(key) : this;
+    if (key > this.key) return this.get(`right`) ? this.get(`right`).find(key) : this;
+  }
+
+  near(key) {
+    const rela = this.tree.root.find(key).splay();
+    if (key === rela.key) return rela;
+    if (key < rela.key) {
+      const left = rela.get(`left`) && rela.get(`left`).most(`right`);
+      return left && key - left.key < rela.key - key ? left : rela;
+    }
+    if (key > rela.key) {
+      const right = rela.get(`right`) && rela.get(`right`).most(`left`);
+      return right && right.key - key < key - rela.key ? right : rela;
+    }
+  }
+
+  most(pos) {
+    return this.get(pos) ? this.get(pos).most(pos) : this;
+  }
+
+  insert(key, value) {
+    const parent = this.tree.root.find(key);
+    if (key === parent.key) parent.splay().value.add(value);
+    else {
+      const child = new yoghurt.Node(key, value, this.tree);
+      if (key < parent.key) parent.set(`left`, child);
+      if (key > parent.key) parent.set(`right`, child);
+      child.splay();
+    }
+  }
+
+  delete(key, value, pos = `left`, opposite = { left: `right`, right: `left` }[pos]) {
+    const node = this.tree.root.find(key).splay();
+    if (key === node.key && node.value.delete(value) && node.value.size === 0) {
+      if (!node.get(pos)) delete (this.tree.root = node.get(opposite)).parent;
+      else {
+        const leaf = node.get(pos).most(opposite);
+        if (leaf.parent !== node) leaf.parent.set(leaf.pos, leaf.get(pos));
+        leaf.set(`left`, node.get(`left`) !== leaf && node.get(`left`));
+        leaf.set(`right`, node.get(`right`) !== leaf && node.get(`right`));
+        delete (this.tree.root = leaf).parent;
+      }
+    }
+  }
+};
+
+/* ------------------------------ END OF SCRIPT ----------------------------- */
 
 console.timeEnd(`Yoghurt Loaded`);
