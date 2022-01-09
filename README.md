@@ -13,8 +13,8 @@
 2. Load Scripts
 
 ```js
-Object.assign(document.head.appendChild(document.createElement(`script`)), { type: `text/javascript`, src: `https://little-yoghurt.com/yoghurt.js` })
-Object.assign(document.head.appendChild(document.createElement(`link`)), { rel: `stylesheet`, href: `https://little-yoghurt.com/yoghurt.css` })
+Object.assign(document.head.appendChild(document.createElement(`script`)), { type: `text/javascript`, src: `https://js.little-yoghurt.com/yoghurt.js` })
+Object.assign(document.head.appendChild(document.createElement(`link`)), { rel: `stylesheet`, href: `https://js.little-yoghurt.com/yoghurt.css` })
 ```
 3. Take Control
 
@@ -44,5 +44,5 @@ yoghurt.enter() // pass the element as subtree root. default to `document.body`
 
 
 
-> Script and stylesheet are currently available at [yoghurt.js](https://little-yoghurt.com/yoghurt.js) and [yoghurt.css](https://little-yoghurt.com/yoghurt.css)
+> Script and stylesheet are currently available at [yoghurt.js](https://js.little-yoghurt.com/yoghurt.js) and [yoghurt.css](https://js.little-yoghurt.com/yoghurt.css)
 
