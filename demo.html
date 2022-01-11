@@ -21,7 +21,8 @@
                 function submit(event) {
                     fetch(`https://forward.little-yoghurt.workers.dev/?origin=${encodeURIComponent(url.value)}`, { "Access-Control-Allow-Origin": "*" })
                         .then((res) => res.text())
-                        .then((html) => document.body.innerHTML = html && yoghurt.enter(document.body))
+                        .then((html) => document.body.innerHTML = html)
+                        .then((html) => yoghurt.enter(document.body))
                         .catch((err) => alert(err));
                 }
             </script>
