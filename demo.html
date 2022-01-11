@@ -19,7 +19,7 @@
                 go.addEventListener(`click`, submit);
                 url.addEventListener(`keypress`, (event) => event.key === `Enter` && submit(event));
                 function submit(event) {
-                    fetch(`http://forward.little-yoghurt.workers.dev/?origin=${encodeURIComponent(url.value)}`, { "Access-Control-Allow-Origin": "*" })
+                    fetch(`https://forward.little-yoghurt.workers.dev/?origin=${encodeURIComponent(url.value)}`, { "Access-Control-Allow-Origin": "*" })
                         .then((res) => res.text())
                         .then((html) => document.body.innerHTML = html && yoghurt.enter(document.body))
                         .catch((err) => alert(err));
