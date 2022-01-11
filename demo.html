@@ -8,11 +8,13 @@
 </head>
 
 <body>
-    <div style="width: 30%; position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%);">
-        <legend style="font-family: fantasy; font-size: 60px; font-variant: small-caps; margin: auto; color: #f0db4f;">Yoghurt.js</legend>
-        <div style="width: 100%; position: relative; display: flex;">
-            <input id="url" type="text" placeholder="Inject some yoghurt!" style="font-family: Courier; margin: 0; width: 100%; border: 3px solid #00B4CC; border-right: none; padding: 5px 15px 5px 15px; line-height: 20px; border-radius: 5px 0 0 5px; outline: none;">
-            <button id="go" type="submit" style="width: 40px; height: 36px; border: 1px solid #00B4CC; background: #00B4CC; text-align: center; color: #fff; border-radius: 0 5px 5px 0; cursor: pointer; font-size: 20px;">
+    <div style="position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);">
+        <legend style="position: relative; left: 50%; transform: translateX(-50%); font-family: fantasy; font-size: 60px; font-variant: small-caps; color: #f0db4f;">Yoghurt.js</legend>
+        <div style="position: relative; left: 50%; transform: translateX(-50%); width: max-content;">
+            <input id="url" type="text" placeholder="Enter URL and inject some yoghurt!"
+                style="display: inline-block; font-family: Courier; margin: 0; width: 30vw; min-width: 240px; border: 3px solid #00B4CC; border-right: none; padding: 5px 15px 5px 15px; line-height: 20px; border-radius: 5px 0 0 5px; outline: none;">
+            <button id="go" type="submit"
+                style="display: inline-block; position: relative; left: -4px; top: 4px; width: 40px; height: 36px; border: 1px solid #00B4CC; background: #00B4CC; text-align: center; color: #fff; border-radius: 0 5px 5px 0; cursor: pointer; font-size: 20px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: inline-block; vertical-align: text-bottom;"><path fill-rule="evenodd" d="M17.263 2.177a1.75 1.75 0 012.474 0l2.586 2.586a1.75 1.75 0 010 2.474L19.53 10.03l-.012.013L8.69 20.378a1.75 1.75 0 01-.699.409l-5.523 1.68a.75.75 0 01-.935-.935l1.673-5.5a1.75 1.75 0 01.466-.756L14.476 4.963l2.787-2.786zm-2.275 4.371l-10.28 9.813a.25.25 0 00-.067.108l-1.264 4.154 4.177-1.271a.25.25 0 00.1-.059l10.273-9.806-2.94-2.939zM19 8.44l2.263-2.262a.25.25 0 000-.354l-2.586-2.586a.25.25 0 00-.354 0L16.061 5.5 19 8.44z"></path></svg>
             </button>
             <script text="text/javascript">

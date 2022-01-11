@@ -2,7 +2,7 @@
 
 ![demo](/demo-1080.gif)
 
-​	🎨 Tidy & lightweight HTML editor in place. Drag 'n 'drop to move elements around. No unnecessary changes to original document are made.
+​	🎨 Tidy & lightweight HTML editor in place. Drag 'n 'drop to move elements around. No unnecessary changes to original document are made. Try demo [here](/demo.html)!
 
 
 
